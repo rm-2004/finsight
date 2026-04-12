@@ -1,13 +1,13 @@
 import nodemailer from 'nodemailer';
 
 const createTransport = () => {
-  const user = process.env.EMAIL_USER || process.env.SMTP_USER;
-  const pass = process.env.EMAIL_PASS || process.env.SMTP_PASS;
-  if (!user || user.includes('your-gmail') || user.includes('yourgmail')) return null;
+  const user = process.env.BREVO_USER;
+  const pass = process.env.BREVO_PASS;
+  if (!user || !pass) return null;
   return nodemailer.createTransport({
-    host:   process.env.EMAIL_HOST || 'smtp.gmail.com',
-    port:   465,
-    secure: true,
+    host:   'smtp-relay.brevo.com',
+    port:   587,
+    secure: false,
     auth:   { user, pass },
     connectionTimeout: 10000,
     greetingTimeout:   10000,
@@ -21,6 +21,8 @@ const getTransport = () => {
   return _transporter;
 };
 
+const FROM = process.env.BREVO_FROM || '"FinSight" <' + process.env.BREVO_USER + '>';
+
 export const sendOtp = async (to, name, otp, mode) => {
   const t = getTransport();
   if (!t) {
@@ -30,7 +32,7 @@ export const sendOtp = async (to, name, otp, mode) => {
   const sub  = mode === 'login' ? 'FinSight Login Code' : 'FinSight - Verify Email';
   const body = mode === 'login' ? 'Your one-time login code:' : 'Verify your email with this code:';
   await t.sendMail({
-    from: '"FinSight" <' + (process.env.EMAIL_USER || process.env.SMTP_USER) + '>',
+    from: FROM,
     to,
     subject: sub,
     html: `<div style="font-family:Arial;max-width:460px;margin:auto;padding:28px;background:#f9f9f9;border-radius:12px">
@@ -50,7 +52,7 @@ export const sendResetEmail = async (to, name, token) => {
     return;
   }
   await t.sendMail({
-    from: '"FinSight" <' + (process.env.EMAIL_USER || process.env.SMTP_USER) + '>',
+    from: FROM,
     to,
     subject: 'FinSight - Reset Your Password',
     html: `<div style="font-family:Arial;max-width:460px;margin:auto;padding:28px;background:#f9f9f9;border-radius:12px">
