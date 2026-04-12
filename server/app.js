@@ -1,70 +1,72 @@
-import express       from 'express';
-import cors          from 'cors';
-import helmet        from 'helmet';
-import rateLimit     from 'express-rate-limit';
-import mongoSanitize from 'express-mongo-sanitize';
-import authR       from './routes/auth.js';
-import txR         from './routes/tx.js';
-import aiR         from './routes/ai.js';
-import repR        from './routes/reports.js';
-import impR        from './routes/import.js';
-import budgetR     from './routes/budget.js';
-import investmentR from './routes/investment.js';
-import goalR       from './routes/goal.js';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/Auth.jsx';
+import { Toaster } from './components/ui/Toast.jsx';
+import Shell       from './components/layout/Shell.jsx';
+import Auth        from './pages/Auth.jsx';
+import Dashboard   from './pages/Dashboard.jsx';
+import Tx          from './pages/Tx.jsx';
+import Add         from './pages/Add.jsx';
+import Charts      from './pages/Charts.jsx';
+import Advisor     from './pages/Advisor.jsx';
+import Reports     from './pages/Reports.jsx';
+import Profile     from './pages/Profile.jsx';
+import Budgets     from './pages/Budgets.jsx';
+import Investments from './pages/Investments.jsx';
+import Goals       from './pages/Goals.jsx';
 
-const app = express();
+const Sp = () => (
+  <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'100vh', background:'var(--bg)' }}>
+    <div className="spin" style={{ width:30, height:30 }}/>
+  </div>
+);
 
-app.set('trust proxy', 1);
-
-app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
-
-const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:4173',
-  'http://127.0.0.1:5173',
-  process.env.CLIENT_URL,
-].filter(Boolean);
-
-const corsOptions = {
-  origin: (origin, cb) => {
-    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
-    cb(new Error('CORS: origin not allowed — ' + origin));
-  },
-  credentials: true,
-  methods: ['GET','POST','PATCH','PUT','DELETE','OPTIONS'],
-  allowedHeaders: ['Content-Type','Authorization'],
+const Private = ({ c }) => {
+  const { user, loading } = useAuth();
+  if (loading) return <Sp/>;
+  return user ? c : <Navigate to="/login" replace/>;
 };
 
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+const Public = ({ c }) => {
+  const { user, loading } = useAuth();
+  if (loading) return <Sp/>;
+  return user ? <Navigate to="/" replace/> : c;
+};
 
-app.use(express.json({ limit:'5mb' }));
-app.use(express.urlencoded({ extended:true, limit:'5mb' }));
-app.use(mongoSanitize());
+const FallBack = () => {
+  const { user, loading } = useAuth();
+  if (loading) return <Sp/>;
+  return <Navigate to={user ? '/' : '/login'} replace/>;
+};
 
-app.use('/api/auth/', rateLimit({ windowMs:15*60*1000, max:30,  standardHeaders:true, legacyHeaders:false }));
-app.use('/api/ai/',   rateLimit({ windowMs:60*1000,   max:20,  standardHeaders:true, legacyHeaders:false }));
-app.use('/api/',      rateLimit({ windowMs:15*60*1000, max:500, standardHeaders:true, legacyHeaders:false }));
+function AppRoutes() {
+  return (
+    <>
+      <Routes>
+        <Route path="/login"          element={<Public c={<Auth/>}/>}/>
+        <Route path="/reset-password" element={<Public c={<Auth/>}/>}/>
+        <Route path="/" element={<Private c={<Shell/>}/>}>
+          <Route index              element={<Dashboard/>}/>
+          <Route path="tx"          element={<Tx/>}/>
+          <Route path="add"         element={<Add/>}/>
+          <Route path="charts"      element={<Charts/>}/>
+          <Route path="budgets"     element={<Budgets/>}/>
+          <Route path="investments" element={<Investments/>}/>
+          <Route path="goals"       element={<Goals/>}/>
+          <Route path="ai"          element={<Advisor/>}/>
+          <Route path="rep"         element={<Reports/>}/>
+          <Route path="prof"        element={<Profile/>}/>
+        </Route>
+        <Route path="*" element={<FallBack/>}/>
+      </Routes>
+      <Toaster/>
+    </>
+  );
+}
 
-app.use('/api/auth',        authR);
-app.use('/api/tx',          txR);
-app.use('/api/ai',          aiR);
-app.use('/api/rep',         repR);
-app.use('/api/imp',         impR);
-app.use('/api/budgets',     budgetR);
-app.use('/api/investments', investmentR);
-app.use('/api/goals',       goalR);
-
-app.get('/api/health', (_, res) => res.json({ ok: true }));
-app.use((req, res, _next) => res.status(404).json({ error: 'Not found.' }));
-
-app.use((err, req, res, _next) => {
-  if (err.name === 'ValidationError') return res.status(400).json({ error: Object.values(err.errors).map(e=>e.message).join('. ') });
-  if (err.code === 11000) return res.status(409).json({ error: Object.keys(err.keyValue)[0]+' already exists.' });
-  if (err.name === 'CastError') return res.status(400).json({ error: 'Invalid ID.' });
-  if (['JsonWebTokenError','TokenExpiredError'].includes(err.name)) return res.status(401).json({ error: 'Invalid or expired token.' });
-  console.error(err.message);
-  res.status(err.status||500).json({ error: err.message||'Server error.' });
-});
-
-export default app;
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppRoutes/>
+    </AuthProvider>
+  );
+}

@@ -2,14 +2,14 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { A } from '../services/api.js';
 import { useAuth } from '../context/Auth.jsx';
 import { today, dAgo } from '../utils/h.js';
-
+ 
 const RANGES = [
   { label: 'This month',   value: 'current' },
   { label: 'Last 30 days', value: '30' },
   { label: 'Last 90 days', value: '90' },
   { label: 'Full history', value: 'all' },
 ];
-
+ 
 const QUICK = [
   'Where is most of my money going?',
   'How can I reduce my expenses?',
@@ -18,10 +18,10 @@ const QUICK = [
   'How to build a 3-month emergency fund?',
   'Should I start a SIP with my savings?',
 ];
-
+ 
 const CSS = `
 .adv-wrap{display:flex;height:calc(100vh - var(--hh) - 40px);min-height:520px;border:1px solid var(--brd);border-radius:var(--r3);overflow:hidden;background:var(--card);}
-
+ 
 /* ── sidebar ── */
 .adv-sb{width:256px;flex-shrink:0;display:flex;flex-direction:column;border-right:1px solid var(--brd);background:var(--card2);}
 .adv-sb-head{padding:13px 14px;border-bottom:1px solid var(--brd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
@@ -33,7 +33,7 @@ const CSS = `
 .adv-qbtn{width:100%;text-align:left;padding:7px 10px;background:transparent;border:1px solid var(--brd);border-radius:var(--r2);font-size:11.5px;color:var(--t2);cursor:pointer;font-family:inherit;line-height:1.4;margin-bottom:4px;transition:border-color .12s,color .12s,background .12s;}
 .adv-qbtn:hover:not(:disabled){border-color:var(--g);color:var(--g);background:var(--gdim);}
 .adv-qbtn:disabled{opacity:.45;cursor:not-allowed;}
-
+ 
 /* ── chat ── */
 .adv-chat{flex:1;display:flex;flex-direction:column;min-width:0;}
 .adv-head{padding:11px 14px;border-bottom:1px solid var(--brd);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-shrink:0;flex-wrap:wrap;}
@@ -56,40 +56,64 @@ const CSS = `
 .adv-send:hover:not(:disabled){background:var(--gd);}
 .adv-send:disabled{background:var(--card2);border:1px solid var(--brd);cursor:not-allowed;}
 .adv-hint{font-size:10.5px;color:var(--t3);text-align:center;margin-top:6px;}
-
+ 
 /* ── mobile bottom tabs ── */
 .adv-mob-tabs{display:none;border-top:1px solid var(--brd);flex-shrink:0;}
 .adv-mtab{flex:1;padding:9px 8px;border:none;background:transparent;font-size:12px;font-weight:500;color:var(--t3);cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:3px;transition:color .12s;}
 .adv-mtab.on{color:var(--g);}
-
-/* ── mobile sidebar overlay ── */
+ 
+/* ── mobile ── */
 @media(max-width:640px){
-  .adv-wrap{position:relative;height:calc(100svh - var(--hh) - 40px);}
-  .adv-sb{display:none;position:absolute;inset:0 auto 0 0;z-index:20;width:78%;max-width:280px;box-shadow:4px 0 20px rgba(0,0,0,.25);}
+  .adv-wrap{
+    position:relative;
+    height:calc(100svh - var(--hh) - 56px);
+    min-height:0;
+    border-radius:var(--r2);
+  }
+  .adv-sb{
+    display:none;
+    position:absolute;
+    inset:0 auto 0 0;
+    z-index:20;
+    width:82%;
+    max-width:280px;
+    box-shadow:4px 0 20px rgba(0,0,0,.35);
+  }
   .adv-sb.open{display:flex;}
   .adv-overlay{display:none;position:absolute;inset:0;background:rgba(0,0,0,.45);z-index:19;}
   .adv-overlay.open{display:block;}
   .adv-mob-tabs{display:flex;}
-  .adv-bubble{max-width:86%;}
-  .adv-msgs{padding:10px;}
-  .adv-head{gap:8px;}
+  .adv-bubble{max-width:88%;font-size:12.5px;}
+  .adv-msgs{padding:10px 8px;gap:8px;}
+  .adv-head{padding:9px 10px;gap:6px;}
+  .adv-head-left gap{gap:7px;}
+  .adv-input{padding:8px 10px;}
+  .adv-textarea{font-size:16px;}
+  .adv-hint{font-size:10px;}
+  .adv-ai-dot{width:24px;height:24px;font-size:8px;}
+}
+ 
+/* ── very small screens ── */
+@media(max-width:360px){
+  .adv-bubble{max-width:94%;font-size:12px;}
+  .adv-head{flex-wrap:nowrap;}
 }
 `;
-
+ 
 export default function Advisor() {
   const { user } = useAuth();
   const uid = user?.id || user?._id || 'guest';
-
+ 
   const chatKey = `fs_chat_${uid}`;
   const tipsKey = `fs_tips_${uid}`;
-
+ 
   const getInitMsgs = useCallback(() => {
     try {
       const s = JSON.parse(localStorage.getItem(chatKey));
       return Array.isArray(s) && s.length ? s : null;
     } catch { return null; }
   }, [chatKey]);
-
+ 
   const [msgs,    setMsgs]    = useState(() => getInitMsgs() || [{ role: 'ai', text: 'I can see your actual transaction data. Ask me anything about your finances.' }]);
   const [tips,    setTips]    = useState(() => { try { return JSON.parse(localStorage.getItem(tipsKey)) || []; } catch { return []; } });
   const [inp,     setInp]     = useState('');
@@ -97,30 +121,29 @@ export default function Advisor() {
   const [range,   setRange]   = useState('current');
   const [sbOpen,  setSbOpen]  = useState(false);
   const [mobTab,  setMobTab]  = useState('chat'); 
-
+ 
   const hist     = useRef([]);
   const bottom   = useRef(null);
   const inputRef = useRef(null);
   const taRef    = useRef(null);
-
-
+ 
   const resize = () => {
     const el = taRef.current;
     if (!el) return;
     el.style.height = 'auto';
     el.style.height = Math.min(el.scrollHeight, 120) + 'px';
   };
-
+ 
   useEffect(() => {
     localStorage.setItem(chatKey, JSON.stringify(msgs.slice(-60)));
   }, [msgs, chatKey]);
-
+ 
   useEffect(() => {
     setMsgs(getInitMsgs() || [{ role: 'ai', text: 'I can see your actual transaction data. Ask me anything about your finances.' }]);
     setTips(() => { try { return JSON.parse(localStorage.getItem(tipsKey)) || []; } catch { return []; } });
     hist.current = [];
   }, [uid]);
-
+ 
   useEffect(() => {
     if (!tips.length) {
       A.aiTips().then(({ data }) => {
@@ -130,17 +153,17 @@ export default function Advisor() {
       }).catch(() => {});
     }
   }, [uid]);
-
+ 
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: 'smooth' });
   }, [msgs]);
-
+ 
   const rangeParams = () => {
     if (range === 'current') return {};
     if (range === 'all') return { rangeFrom: '2020-01-01', rangeTo: today() };
     return { rangeFrom: dAgo(+range), rangeTo: today() };
   };
-
+ 
   const send = useCallback(async (txt) => {
     const msg = (txt ?? inp).trim();
     if (!msg || busy) return;
@@ -164,37 +187,37 @@ export default function Advisor() {
       setTimeout(() => taRef.current?.focus(), 80);
     }
   }, [inp, busy, range]);
-
+ 
   const clear = () => {
     const init = [{ role: 'ai', text: 'Chat cleared. Ask me anything about your finances.' }];
     setMsgs(init);
     hist.current = [];
     localStorage.setItem(chatKey, JSON.stringify(init));
   };
-
+ 
   const openTips = () => { setSbOpen(true); setMobTab('tips'); };
   const closeOverlay = () => { setSbOpen(false); setMobTab('chat'); };
-
+ 
   const Ico = ({ d, s = 15 }) => (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor"
       strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ display:'block', flexShrink:0 }}>
       <path d={d}/>
     </svg>
   );
-
+ 
   return (
     <div className="fade" style={{ width: '100%' }}>
       <style>{CSS}</style>
-
+ 
       <div className="adv-wrap">
-
+ 
         <div className={'adv-overlay' + (sbOpen ? ' open' : '')} onClick={closeOverlay}/>
-
+ 
         <aside className={'adv-sb' + (sbOpen ? ' open' : '')}>
           <div className="adv-sb-head">
             <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Insights</span>
           </div>
-
+ 
           <div className="adv-sb-body">
             {tips.length > 0 && (
               <>
@@ -204,16 +227,16 @@ export default function Advisor() {
                 ))}
               </>
             )}
-
+ 
             <div className="adv-sec" style={{ marginTop: tips.length ? 10 : 0 }}>Quick Questions</div>
             {QUICK.map(q => (
               <button key={q} className="adv-qbtn" disabled={busy} onClick={() => send(q)}>{q}</button>
             ))}
           </div>
         </aside>
-
+ 
         <div className="adv-chat">
-
+ 
           <div className="adv-head">
             <div className="adv-head-left">
               <div className="adv-ai-dot">AI</div>
@@ -222,20 +245,20 @@ export default function Advisor() {
                 <div style={{ fontSize: 11, color: 'var(--t3)' }}>Based on your real data</div>
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <select value={range} onChange={e => setRange(e.target.value)}
-                style={{ padding: '5px 8px', background: 'var(--inp)', border: '1px solid var(--brd)', borderRadius: 'var(--r2)', fontSize: 12, color: 'var(--t1)', outline: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+                style={{ padding: '5px 6px', background: 'var(--inp)', border: '1px solid var(--brd)', borderRadius: 'var(--r2)', fontSize: 11, color: 'var(--t1)', outline: 'none', cursor: 'pointer', fontFamily: 'inherit', maxWidth: 110 }}>
                 {RANGES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>
               <button onClick={clear}
-                style={{ padding: '5px 10px', background: 'transparent', border: '1px solid var(--brd)', borderRadius: 'var(--r2)', fontSize: 12, color: 'var(--t3)', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', transition: 'color .12s,border-color .12s' }}
+                style={{ padding: '5px 9px', background: 'transparent', border: '1px solid var(--brd)', borderRadius: 'var(--r2)', fontSize: 11, color: 'var(--t3)', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', transition: 'color .12s,border-color .12s' }}
                 onMouseEnter={e => { e.currentTarget.style.color = 'var(--t2)'; e.currentTarget.style.borderColor = 'var(--t3)'; }}
                 onMouseLeave={e => { e.currentTarget.style.color = 'var(--t3)'; e.currentTarget.style.borderColor = 'var(--brd)'; }}>
                 Clear
               </button>
             </div>
           </div>
-
+ 
           <div className="adv-msgs">
             {msgs.map((m, i) => (
               <div key={i} className={'adv-row' + (m.role === 'user' ? ' user' : '')}>
@@ -245,7 +268,7 @@ export default function Advisor() {
                 </div>
               </div>
             ))}
-
+ 
             {busy && (
               <div className="adv-row">
                 <div className="adv-ai-dot">AI</div>
@@ -258,7 +281,7 @@ export default function Advisor() {
             )}
             <div ref={bottom}/>
           </div>
-
+ 
           <div className="adv-input">
             <div className="adv-input-row">
               <textarea
@@ -280,7 +303,7 @@ export default function Advisor() {
             </div>
             <div className="adv-hint">AI uses only your actual data · Not financial advice</div>
           </div>
-
+ 
           <div className="adv-mob-tabs">
             <button className={'adv-mtab' + (mobTab === 'chat' ? ' on' : '')} onClick={() => { setMobTab('chat'); setSbOpen(false); }}>
               <Ico d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
@@ -291,7 +314,7 @@ export default function Advisor() {
               Insights
             </button>
           </div>
-
+ 
         </div>
       </div>
     </div>
