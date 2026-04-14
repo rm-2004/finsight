@@ -2,7 +2,7 @@
 
 A full-stack personal finance web app built for Indian users. Track income, expenses, investments, savings goals and budgets — with an AI advisor that reads your actual transaction data.
 
-**Live:** https://finsight-adv-rmx.onrender.com
+**Live:** https://finsight-adv-rmx.vercel.app
 
 ---
 
@@ -16,7 +16,7 @@ A full-stack personal finance web app built for Indian users. Track income, expe
 | Auth | JWT + OTP email verification |
 | Email | Brevo HTTP API |
 | AI | Groq (Llama 3) |
-| Hosting | Render (Static Site + Web Service) |
+| Hosting | Vercel (Frontend) + Render (Backend) |
 
 ---
 
@@ -57,8 +57,6 @@ finsight/
 │   └── package.json
 │
 ├── client/
-│   ├── public/
-│   │   └── _redirects      SPA routing fix for Render
 │   ├── src/
 │   │   ├── pages/          Dashboard, Tx, Add, Charts, Budgets,
 │   │   │                   Investments, Goals, Advisor, Reports,
@@ -72,6 +70,7 @@ finsight/
 │   │   └── app.css         global styles + CSS variables
 │   ├── index.html
 │   ├── vite.config.js
+│   ├── vercel.json         SPA routing fix for Vercel
 │   └── package.json
 │
 ├── .env.example
@@ -124,9 +123,9 @@ VITE_API_URL=http://localhost:5001
 
 ---
 
-## Deployment (Render)
+## Deployment
 
-### Backend — Web Service
+### Backend — Render Web Service
 
 | Setting | Value |
 |---|---|
@@ -141,26 +140,26 @@ NODE_ENV=production
 MONGODB_URI=...
 JWT_SECRET=...
 GROQ_API_KEY=...
-CLIENT_URL=https://your-frontend.onrender.com
+CLIENT_URL=https://your-frontend.vercel.app
 BREVO_API_KEY=...
 BREVO_FROM=...
 BREVO_SENDER_NAME=FinSight
 ```
 
-### Frontend — Static Site
+### Frontend — Vercel
 
 | Setting | Value |
 |---|---|
 | Root Directory | `client` |
-| Build Command | `npm install && npm run build` |
-| Publish Directory | `dist` |
+| Build Command | `npm run build` |
+| Output Directory | `dist` |
 
-Environment variables to add in Render dashboard:
+Environment variables to add in Vercel dashboard:
 ```
 VITE_API_URL=https://your-backend.onrender.com
 ```
 
-> `VITE_API_URL` is baked into the JS bundle at build time by Vite. After changing it, always do **"Clear build cache & deploy"** in Render.
+> `VITE_API_URL` is baked into the JS bundle at build time by Vite. After changing it, always trigger a fresh deployment from the Vercel dashboard.
 
 ---
 
@@ -189,21 +188,25 @@ The app originally used Gmail SMTP via nodemailer. This was replaced with Brevo 
 
 Brevo's HTTP API sends email over port 443 (standard HTTPS) which is never blocked. The free tier allows 300 emails/day with no domain required. The fix required changing only `server/utils/mailer.js` — no new packages, no changes to any other file.
 
-### SPA Routing — `client/public/_redirects`
+### SPA Routing — `client/vercel.json`
 
 FinSight is a Single Page Application. Only one real file exists on the server: `index.html`. All routes (`/tx`, `/budgets`, `/ai` etc.) are handled by React Router entirely in the browser.
 
-Without the `_redirects` file, Render returns 404 for any URL that isn't exactly `/`. This breaks page refresh, direct URL visits, and password reset links sent by email.
+Without a rewrite rule, Vercel returns 404 for any URL that isn't exactly `/`. This breaks page refresh, direct URL visits, and password reset links sent by email.
 
-The file `client/public/_redirects` contains one line:
+The file `client/vercel.json` contains:
+```json
+{
+  "rewrites": [
+    { "source": "/((?!api/.*).*)", "destination": "/index.html" }
+  ]
+}
 ```
-/*    /index.html    200
-```
 
-Vite copies everything in `public/` into `dist/` at build time. Render reads `_redirects` from the root of the publish directory and applies the redirect rule automatically.
+This tells Vercel to serve `index.html` for every request that isn't an API call, so React Router can take over client-side. Vercel picks this file up automatically — no dashboard configuration needed.
 
-**Important:** Render's Static Site must have **Root Directory set to `client`** and **Publish Directory set to `dist`**. If Root Directory is blank or set to the repo root, Render builds from the wrong folder and never finds the correct `dist/` output.
+> Note: `_redirects` is a Netlify-only format. Vercel ignores it entirely. Always use `vercel.json` for Vercel deployments.
 
 ### `VITE_API_URL` — build-time variable
 
-Unlike runtime environment variables, `VITE_API_URL` is replaced inside the JS source code at build time by Vite. If it is added to Render after the first build, the already-compiled bundle still has an empty string baked in. A new build must be triggered after any change to this variable.
+Unlike runtime environment variables, `VITE_API_URL` is replaced inside the JS source code at build time by Vite. If it is added to Vercel after the first deployment, the already-compiled bundle still has an empty string baked in. A new deployment must be triggered after any change to this variable.
